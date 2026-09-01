@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+.env
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+data
+work
+frontend/node_modules
+frontend/dist
