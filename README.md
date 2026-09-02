@@ -1,10 +1,10 @@
 # SyllabusFlow
 
-> Turn course documents into confirmed deadlines and actionable study plans.
+> Turn course codes and course documents into confirmed deadlines and actionable study plans.
 
-SyllabusFlow 是一个面向学生的课程大纲处理与学习规划项目。用户上传 syllabus PDF 后，系统将提取课程、作业、考试和截止日期，让用户确认结果，再生成可以编辑和追踪的学习计划。
+SyllabusFlow 是一个面向学生的课程信息整理与学习规划项目。用户可以输入悉尼大学（USYD）课程代码，或者上传 syllabus PDF。系统从可追溯的来源提取课程、作业、考试和截止日期，让用户确认结果，再生成可以编辑和追踪的学习计划。
 
-当前仓库处于 **Foundation / MVP 开发阶段**：前后端基础架构、健康检查、测试和 CI 已建立，PDF、数据库、AI 结构化提取和学习计划功能将按开发计划逐步实现。
+当前仓库处于 **Foundation / MVP 开发阶段**：前后端基础架构、健康检查、测试和 CI 已建立。第一版外部课程数据源限定为悉尼大学公开的 Unit of Study 和 Unit Outline 页面；数据库、课程代码导入、PDF、AI 结构化提取和学习计划功能将按开发计划逐步实现。
 
 ## 项目目标
 
@@ -16,27 +16,28 @@ SyllabusFlow 是一个面向学生的课程大纲处理与学习规划项目。�
 - 提交要求和迟交规则；
 - 多门课程之间的时间冲突。
 
-SyllabusFlow 的目标不是替用户做决定，而是把课程文档转化为结构化、可确认、可修改的数据，再基于确认后的数据生成学习任务。
+有些课程信息已经发布在学校的官方页面，有些信息只存在于教师提供的 syllabus PDF 中。SyllabusFlow 的目标不是替用户做决定，而是把这些信息转化为结构化、可追溯、可确认、可修改的数据，再基于确认后的数据生成学习任务。
 
 ## 核心流程
 
 ```text
-上传 PDF
-  ↓
-校验文件并提取文本
-  ↓
-AI 生成结构化课程信息
-  ↓
-Pydantic 校验数据
-  ↓
-用户确认或修改
-  ↓
-保存课程与考核日期
-  ↓
-生成可编辑的学习计划
+方式 A：输入 USYD 课程代码             方式 B：上传 syllabus PDF
+            ↓                                      ↓
+读取公开的 Unit / Outline 页面             校验文件并提取文本
+            ↓                                      ↓
+确定性解析课程、学期和 Assessment        AI 生成结构化课程信息
+            └──────────────────┬───────────────────┘
+                               ↓
+                     Pydantic 校验统一数据结构
+                               ↓
+                         用户确认或修改
+                               ↓
+                     保存课程与考核日期
+                               ↓
+                     生成可编辑的学习计划
 ```
 
-第一版采用 **Prompt + 结构化输出 + 数据校验**，不使用 RAG，也不微调模型。这样可以控制项目范围，并让技术方案与“从单份课程大纲提取固定字段”的任务更匹配。
+悉尼大学课程代码导入优先采用网页解析，不让 AI 猜测官方字段。PDF 路径采用 **Prompt + 结构化输出 + 数据校验**。第一版不使用 RAG，也不微调模型，以控制项目范围，并让技术方案与具体任务匹配。
 
 ## 当前功能
 
@@ -50,11 +51,14 @@ Pydantic 校验数据
 - [x] TypeScript 类型检查和 Vite 生产构建
 - [x] GitHub Actions CI
 - [x] PostgreSQL Docker Compose 基础配置
+- [x] 确定悉尼大学为第一版官方课程数据源
 - [ ] 数据库模型和迁移
 - [ ] 课程 CRUD
+- [ ] USYD 课程代码查询、学期选择与导入
+- [ ] USYD Unit Outline assessment 解析
 - [ ] PDF 上传与文本提取
 - [ ] AI 结构化信息提取
-- [ ] 用户确认和纠错界面
+- [ ] 统一的来源展示、用户确认和纠错界面
 - [ ] 学习计划生成与任务管理
 - [ ] 评估集和线上部署
 
@@ -72,18 +76,18 @@ Pydantic 校验数据
 │ http://localhost:8000              │
 │                                    │
 │ API routes → services → data layer │
-└───────────┬──────────────┬─────────┘
-            │              │
-┌───────────▼──────┐  ┌────▼───────────────┐
-│ PostgreSQL       │  │ PDF / AI services  │
-│ SQLAlchemy       │  │ PyMuPDF + LLM API  │
-└──────────────────┘  └────────────────────┘
+└────────┬──────────┬──────────────┬─┘
+         │          │              │
+┌────────▼──────┐ ┌─▼────────────┐ ┌▼────────────────────┐
+│ PostgreSQL    │ │ PDF / AI     │ │ Course source       │
+│ SQLAlchemy    │ │ PyMuPDF+LLM  │ │ USYD public pages   │
+└───────────────┘ └──────────────┘ └─────────────────────┘
 ```
 
 前端和后端相互独立：
 
 - React 负责页面、表单、交互和状态展示；
-- FastAPI 负责文件、业务逻辑、数据校验、数据库和 AI 调用；
+- FastAPI 负责官方课程页面读取、文件、业务逻辑、数据校验、数据库和 AI 调用；
 - 两者通过 HTTP API 和 JSON 通信；
 - 未来可以替换前端，而不必重写后端业务逻辑。
 
@@ -99,6 +103,8 @@ Pydantic 校验数据
 | ORM | SQLAlchemy | Python 数据模型和数据库访问 |
 | 数据库 | PostgreSQL | 保存课程、文档和学习任务 |
 | PDF | PyMuPDF | 提取 PDF 文本和元数据 |
+| 外部请求 | HTTPX | 请求悉尼大学公开课程页面 |
+| 网页解析 | Beautiful Soup | 从 Unit 和 Outline 页面提取结构化字段 |
 | HTTP | Fetch API | React 调用 FastAPI |
 | 测试 | pytest | 后端自动化测试 |
 | 代码检查 | Ruff | Python 格式和静态检查 |
@@ -285,6 +291,10 @@ GET    /api/courses/{course_id}
 PATCH  /api/courses/{course_id}
 DELETE /api/courses/{course_id}
 
+GET    /api/providers/usyd/units/{unit_code}
+GET    /api/providers/usyd/outlines/{outline_id}
+POST   /api/courses/import/usyd
+
 POST   /api/documents
 GET    /api/documents/{document_id}
 POST   /api/documents/{document_id}/extract
@@ -300,6 +310,13 @@ PATCH  /api/study-tasks/{task_id}
 - `id`
 - `name`
 - `code`
+- `institution`
+- `provider`
+- `source_type`
+- `source_url`
+- `source_year`
+- `source_session`
+- `last_fetched_at`
 - `term`
 - `instructor`
 - `created_at`
@@ -322,6 +339,7 @@ PATCH  /api/study-tasks/{task_id}
 - `due_at`
 - `weight`
 - `source_text`
+- `source_url`
 - `confirmed_by_user`
 
 ### StudyTask
@@ -333,6 +351,19 @@ PATCH  /api/study-tasks/{task_id}
 - `estimated_minutes`
 - `priority`
 - `status`
+
+## 悉尼大学课程代码导入
+
+第一版只支持悉尼大学，用户输入类似 `INFO1110` 的课程代码。后端将：
+
+1. 规范化并校验课程代码；
+2. 读取 `https://www.sydney.edu.au/units/{UNIT_CODE}`；
+3. 提取课程名称、简介、学分、规则和可用学期；
+4. 让用户选择具体 Unit Outline；
+5. 提取公开的 assessment、due date、评分占比和周计划；
+6. 返回来源 URL 和获取时间，等待用户确认后保存。
+
+如果课程不存在、网页结构变化、网络请求失败或 Unit Outline 尚未发布，系统必须给出明确状态，不能生成或猜测日期。第一版只读取无需登录的公开页面，不访问 Sydney Student、Canvas 或其他私有教务数据。请求会设置超时、适度缓存和频率限制，保存的数据始终保留官方来源链接。
 
 ## AI 结构化提取策略
 
@@ -368,6 +399,8 @@ PATCH  /api/study-tasks/{task_id}
 - `.env` 已被 `.gitignore` 排除；
 - 浏览器前端不保存 LLM API Key；
 - 上传文件必须校验类型、大小和解析结果；
+- 外部网页请求必须设置超时、缓存、频率限制和允许的域名；
+- 保存学校公开数据时记录来源 URL 和获取时间；
 - 错误响应不返回服务器路径或敏感配置；
 - 用户确认前，不把 AI 提取结果视为最终事实。
 
@@ -387,7 +420,15 @@ PATCH  /api/study-tasks/{task_id}
 - [ ] Alembic 迁移
 - [ ] Course CRUD
 
-### Phase 2：PDF Pipeline
+### Phase 2A：USYD Course Import
+
+- [ ] USYD provider 与网页请求服务
+- [ ] Unit of Study 页面解析
+- [ ] Unit Outline 和 assessment 解析
+- [ ] 学期选择、来源展示和确认导入
+- [ ] HTML fixture、异常情况和接口测试
+
+### Phase 2B：PDF Pipeline
 
 - [ ] PDF 上传和安全校验
 - [ ] PyMuPDF 文本提取
